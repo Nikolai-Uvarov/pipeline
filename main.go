@@ -3,7 +3,9 @@ package main
 import (
 	"container/ring"
 	"fmt"
-	"os"
+	"log"
+
+	//"os"
 	"strconv"
 	"time"
 )
@@ -40,22 +42,24 @@ func DataSupply() (data chan int, stop chan int) {
 
 		var inp string
 
-		fmt.Println("Введите целые числа, после каждого \"enter\".\n Для остановки обработки введите \"stop\"")
+		//fmt.Println("Введите целые числа, после каждого \"enter\".\n Для остановки обработки введите \"stop\"")
+		log.Println("Введите целые числа, после каждого \"enter\".\n Для остановки обработки введите \"stop\"")
 		for {
 			_, err := fmt.Scanln(&inp)
 			if err != nil {
-				fmt.Println("Unexpected input error:", err)
-				os.Exit(0)
+				log.Fatal("Unexpected input error:", err)
+				//os.Exit(0)
 			}
 
 			if inp == "stop" {
 				close(stop)
+				log.Println("Pipeline stopped by user")
 				break
 			}
 
 			i, err := strconv.Atoi(inp)
 			if err != nil {
-				fmt.Println("Ошибка ввода: введите число или строку \"stop\"\n можете продолжить ввод")
+				log.Println("Ошибка ввода: введите число или строку \"stop\"\n можете продолжить ввод")
 				continue
 			}
 
@@ -79,6 +83,9 @@ func FilterNegative(data <-chan int, stop <-chan int) <-chan int {
 			case i := <-data:
 				if i >= 0 {
 					output <- i
+					log.Println("positive: ", i, "passed filtration")
+				} else {
+					log.Println("filtered negative: ", i)
 				}
 			case <-stop:
 				break loop
@@ -101,6 +108,9 @@ func FilterNotDivBy3(data <-chan int, stop <-chan int) <-chan int {
 			case i := <-data:
 				if i != 0 && i%3 == 0 {
 					output <- i
+					log.Println("dividalbe by 3: ", i, "passed filtration")
+				} else {
+					log.Println("filtered zero or not dividalbe by 3: ", i)
 				}
 			case <-stop:
 				break loop
@@ -131,6 +141,7 @@ func DataBuffer(data <-chan int, stop <-chan int) <-chan int {
 				cap <- 1
 				buf.Value = i
 				buf = buf.Next()
+				log.Println("Added to buffer: ", i)
 			case <-stop:
 				break loop
 			}
@@ -147,10 +158,12 @@ func DataBuffer(data <-chan int, stop <-chan int) <-chan int {
 
 				//опустошаем буфер
 				for begin != buf || begin.Value != nil {
-					output <- begin.Value.(int)
+					i := begin.Value.(int)
+					output <- i
 					begin.Value = nil
 					begin = begin.Next()
 					<-cap
+					log.Println("Send from buffer: ", i)
 				}
 			case <-stop:
 				break loop
@@ -172,8 +185,9 @@ func DataConsumer(data <-chan int, stop <-chan int) {
 		select {
 		case i := <-data:
 			output = append(output, i)
+			log.Println("recieved by consumer: ", i)
 		case <-stop:
-			fmt.Println("Получены данные:\n", output, "\n", "Goodbye!")
+			log.Println("Получены данные:\n", output, "\n", "Goodbye!")
 			return
 		}
 	}
